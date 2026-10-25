@@ -10,7 +10,7 @@ use jacquard_identity::JacquardResolver;
 use jose_jwa::{Algorithm, Signing};
 use jose_jwk::{Jwk, Key, crypto};
 use p256::ecdsa::SigningKey;
-use rand::{RngCore, SeedableRng};
+use rand::{Rng, SeedableRng};
 use sha2_legacy::Digest;
 use smol_str::{SmolStr, ToSmolStr};
 
@@ -779,7 +779,7 @@ fn is_use_dpop_nonce_error(is_to_auth_server: bool, response: &Response<Vec<u8>>
 
 #[inline]
 pub(crate) fn generate_jti() -> SmolStr {
-    let mut rng = rand::rngs::SmallRng::from_entropy();
+    let mut rng = rand::rngs::SmallRng::from_rng(&mut rand::rng());
     let mut bytes = [0u8; 12];
     rng.fill_bytes(&mut bytes);
     URL_SAFE_NO_PAD.encode(bytes).into()
@@ -792,7 +792,7 @@ pub(crate) fn generate_jti() -> SmolStr {
 /// serialization `build_dpop_proof` embeds, so the two can never disagree.
 pub fn jkt(key: &Key) -> Result<SmolStr> {
     use base64::Engine as _;
-    use p256::elliptic_curve::sec1::ToEncodedPoint;
+    use p256::elliptic_curve::sec1::ToSec1Point;
     use sha2_legacy::Digest as _;
 
     let public = match crypto::Key::try_from(key).map_err(DpopError::crypto)? {
@@ -800,7 +800,7 @@ pub fn jkt(key: &Key) -> Result<SmolStr> {
         crypto::Key::P256(crypto::Kind::Public(pk)) => pk,
         _ => return Err(DpopError::unsupported_key()),
     };
-    let point = public.to_encoded_point(false);
+    let point = public.to_sec1_point(false);
     let (x, y) = (point.x(), point.y());
     // RFC 7638: lexicographic order of the required members.
     let thumbprint_input = format!(

@@ -38,14 +38,14 @@ miette = { workspace = true }
 p256 = { workspace = true, features = ["ecdsa"] }
 p384 = { workspace = true, features = ["ecdsa"] }
 k256 = { workspace = true, features = ["ecdsa"] }
-ed25519-dalek = { version = "2", features = ["rand_core"] }
+ed25519-dalek = { version = "3.0.0", features = ["rand_core"] }
 jose-jwa = "0.1"
 jose-jwk = { workspace = true, features = ["p256", "p384"] }
 chrono.workspace = true
 elliptic-curve.workspace = true
 http.workspace = true
 bytes.workspace = true
-rand = { version = "0.8.7", features = ["small_rng"] }
+rand = "0.10.3"
 dashmap = "6.1.0"
 mini-moka = { package = "mini-moka-wasm", version = "0.10", path = "../mini-moka-wasm" }
 tokio = { workspace = true, default-features = false, features = ["sync"] }

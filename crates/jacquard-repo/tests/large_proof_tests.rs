@@ -13,8 +13,10 @@ use jacquard_repo::car::read_car_header;
 use jacquard_repo::commit::firehose::validate_v1_1;
 use jacquard_repo::mst::RecordWriteOp;
 use jacquard_repo::storage::{BlockStore, MemoryBlockStore};
+use k256::elliptic_curve::Generate as _;
 use rand::Rng;
-use rand::seq::SliceRandom;
+use rand::RngExt as _;
+use rand::seq::IndexedRandom;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
@@ -43,7 +45,7 @@ fn make_test_record(n: u32, text: &str) -> BTreeMap<SmolStr, RawData<'static>> {
 
 fn get_public_key(signing_key: &k256::ecdsa::SigningKey) -> PublicKey<'static> {
     let verifying_key = signing_key.verifying_key();
-    let pubkey_bytes = verifying_key.to_encoded_point(true).as_bytes().to_vec();
+    let pubkey_bytes = verifying_key.to_sec1_point(true).as_bytes().to_vec();
     PublicKey {
         codec: KeyCodec::Secp256k1,
         bytes: pubkey_bytes.into(),
@@ -52,7 +54,7 @@ fn get_public_key(signing_key: &k256::ecdsa::SigningKey) -> PublicKey<'static> {
 
 async fn create_test_repo(storage: Arc<MemoryBlockStore>) -> Repository<SmolStr, MemoryBlockStore> {
     let did = Did::new("did:plc:stresstest").unwrap();
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
 
     Repository::create(storage, did.into_static(), &signing_key, None)
         .await
@@ -110,7 +112,7 @@ fn generate_creates_only<R: Rng>(
     let mut ops = Vec::new();
     for _ in 0..count {
         let rkey = tracker.gen_new_rkey();
-        let counter: u32 = rng.r#gen();
+        let counter: u32 = rng.random();
         tracker.add(rkey.clone(), counter);
         ops.push(TestOp::Create { rkey, counter });
     }
@@ -126,24 +128,24 @@ fn generate_random_ops<R: Rng>(
 
     for _ in 0..count {
         // Weighted random choice: 50% create, 30% update, 20% delete
-        let action = rng.gen_range(0..100);
+        let action = rng.random_range(0..100);
 
         let op = if action < 50 || tracker.len() == 0 {
             // Create
             let rkey = tracker.gen_new_rkey();
-            let counter: u32 = rng.r#gen();
+            let counter: u32 = rng.random();
             tracker.add(rkey.clone(), counter);
             TestOp::Create { rkey, counter }
         } else if action < 80 {
             // Update
             if let Some(rkey) = tracker.pick_random_existing(rng) {
-                let counter: u32 = rng.r#gen();
+                let counter: u32 = rng.random();
                 tracker.add(rkey.clone(), counter);
                 TestOp::Update { rkey, counter }
             } else {
                 // Fall back to create if no records exist
                 let rkey = tracker.gen_new_rkey();
-                let counter: u32 = rng.r#gen();
+                let counter: u32 = rng.random();
                 tracker.add(rkey.clone(), counter);
                 TestOp::Create { rkey, counter }
             }
@@ -155,7 +157,7 @@ fn generate_random_ops<R: Rng>(
             } else {
                 // Fall back to create if no records exist
                 let rkey = tracker.gen_new_rkey();
-                let counter: u32 = rng.r#gen();
+                let counter: u32 = rng.random();
                 tracker.add(rkey.clone(), counter);
                 TestOp::Create { rkey, counter }
             }
@@ -201,10 +203,10 @@ async fn test_stress_random_operations() {
 
     let collection = Nsid::new("app.bsky.feed.post").unwrap().into_static();
     let did = Did::new("did:plc:stresstest").unwrap().into_static();
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let pubkey = get_public_key(&signing_key);
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut tracker = RecordTracker::new();
 
     // Step 1: Create initial batch of records
@@ -242,7 +244,7 @@ async fn test_stress_random_operations() {
     let mut total_ops = 0;
 
     while total_ops < STRESS_OPERATIONS {
-        let batch_size = rng.gen_range(BATCH_SIZE_RANGE.0..=BATCH_SIZE_RANGE.1);
+        let batch_size = rng.random_range(BATCH_SIZE_RANGE.0..=BATCH_SIZE_RANGE.1);
         let remaining = STRESS_OPERATIONS - total_ops;
         let ops_count = batch_size.min(remaining);
 
@@ -313,10 +315,10 @@ async fn test_stress_large_batches() {
 
     let collection = Nsid::new("app.bsky.feed.post").unwrap().into_static();
     let did = Did::new("did:plc:stresstest").unwrap().into_static();
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let pubkey = get_public_key(&signing_key);
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut tracker = RecordTracker::new();
 
     // Create initial records
@@ -341,7 +343,7 @@ async fn test_stress_large_batches() {
     validate_v1_1(&firehose_commit, &pubkey).await.unwrap();
 
     for batch_num in 1..=5000 {
-        let batch_size = rng.gen_range(1..=20);
+        let batch_size = rng.random_range(1..=20);
         let ops = generate_random_ops(&mut rng, &mut tracker, batch_size);
         let record_writes = test_ops_to_record_writes(ops, &collection);
 
@@ -412,16 +414,16 @@ async fn test_stress_with_fixture() {
     );
 
     let collection = Nsid::new("app.bsky.feed.post").unwrap().into_static();
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let pubkey = get_public_key(&signing_key);
     let did = repo.did().clone().into_static();
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut tracker = RecordTracker::new();
 
     // Perform random operations on fixture repo
     for batch_num in 1..=20 {
-        let batch_size = rng.gen_range(10..=50);
+        let batch_size = rng.random_range(10..=50);
         let ops = generate_random_ops(&mut rng, &mut tracker, batch_size);
         let record_writes = test_ops_to_record_writes(ops, &collection);
 

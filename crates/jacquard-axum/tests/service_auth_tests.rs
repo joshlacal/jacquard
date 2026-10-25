@@ -25,6 +25,7 @@ use jacquard_common::{
 use jacquard_identity::resolver::{
     DidDocResponse, IdentityError, IdentityResolver, ResolverOptions,
 };
+use k256::elliptic_curve::Generate as _;
 use reqwest::StatusCode as ReqwestStatusCode;
 use serde_json::json;
 use std::{
@@ -99,7 +100,7 @@ fn create_test_did_doc(did: &str, public_key: &k256::ecdsa::VerifyingKey) -> Did
     use std::collections::BTreeMap;
 
     // Encode as compressed SEC1
-    let encoded_point = public_key.to_encoded_point(true);
+    let encoded_point = public_key.to_sec1_point(true);
     let key_bytes = encoded_point.as_bytes();
 
     // Multicodec prefix for secp256k1-pub (0xe701)
@@ -205,7 +206,7 @@ impl IdentityResolver for MockResolver {
 #[tokio::test]
 async fn test_extractor_with_valid_jwt() {
     // Generate keypair
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let verifying_key = signing_key.verifying_key();
 
     // Create test DID and JWT
@@ -260,7 +261,7 @@ async fn test_extractor_with_valid_jwt() {
 
 #[tokio::test]
 async fn test_extractor_with_expired_jwt() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let verifying_key = signing_key.verifying_key();
 
     let user_did = "did:plc:test123";
@@ -295,7 +296,7 @@ async fn test_extractor_with_expired_jwt() {
 
 #[tokio::test]
 async fn test_extractor_with_wrong_audience() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let verifying_key = signing_key.verifying_key();
 
     let user_did = "did:plc:test123";
@@ -331,7 +332,7 @@ async fn test_extractor_with_wrong_audience() {
 
 #[tokio::test]
 async fn test_extractor_missing_auth_header() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let verifying_key = signing_key.verifying_key();
 
     let user_did = "did:plc:test123";
@@ -359,7 +360,7 @@ async fn test_extractor_missing_auth_header() {
 
 #[tokio::test]
 async fn test_middleware_with_valid_jwt() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let verifying_key = signing_key.verifying_key();
 
     let user_did = "did:plc:test123";
@@ -413,7 +414,7 @@ async fn test_middleware_with_valid_jwt() {
 
 #[tokio::test]
 async fn test_require_lxm() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let verifying_key = signing_key.verifying_key();
 
     let user_did = "did:plc:test123";
@@ -451,7 +452,7 @@ async fn test_require_lxm() {
 
 #[tokio::test]
 async fn test_with_lxm_present() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let verifying_key = signing_key.verifying_key();
 
     let user_did = "did:plc:test123";
@@ -511,7 +512,7 @@ async fn test_with_lxm_present() {
 
 #[tokio::test]
 async fn test_legacy_without_lxm() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let verifying_key = signing_key.verifying_key();
 
     let user_did = "did:plc:test123";
@@ -557,7 +558,7 @@ async fn test_legacy_without_lxm() {
 
 #[tokio::test]
 async fn test_lxm_must_match_xrpc_path() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let did = "did:plc:test123";
     let service = "did:web:service.example";
     let jwt = create_test_jwt(
@@ -593,7 +594,7 @@ async fn test_lxm_must_match_xrpc_path() {
 
 #[tokio::test]
 async fn test_optional_extractor_valid_and_missing_and_invalid() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let verifying_key = signing_key.verifying_key();
     let user_did = "did:plc:test123";
     let service_did = "did:web:feedgen.example.com";
@@ -653,7 +654,7 @@ async fn test_optional_extractor_valid_and_missing_and_invalid() {
 
 #[tokio::test]
 async fn test_replay_rejects_second_presentation() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let verifying_key = signing_key.verifying_key();
     let user_did = "did:plc:test123";
     let service_did = "did:web:feedgen.example.com";
@@ -691,7 +692,7 @@ async fn test_replay_rejects_second_presentation() {
 
 #[tokio::test]
 async fn test_replay_accepts_again_after_expiration() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let verifying_key = signing_key.verifying_key();
     let user_did = "did:plc:test123";
     let service_did = "did:web:feedgen.example.com";
@@ -740,7 +741,7 @@ async fn test_replay_accepts_again_after_expiration() {
 
 #[tokio::test]
 async fn test_replay_disabled_allows_missing_and_repeated_jti() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let verifying_key = signing_key.verifying_key();
     let user_did = "did:plc:test123";
     let service_did = "did:web:feedgen.example.com";
@@ -779,7 +780,7 @@ async fn test_replay_disabled_allows_missing_and_repeated_jti() {
 
 #[tokio::test]
 async fn test_missing_jti_rejected_when_replay_enabled() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let verifying_key = signing_key.verifying_key();
     let user_did = "did:plc:test123";
     let service_did = "did:web:feedgen.example.com";
@@ -814,7 +815,7 @@ async fn test_missing_jti_rejected_when_replay_enabled() {
 
 #[tokio::test]
 async fn test_global_service_id_allow_list() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let verifying_key = signing_key.verifying_key();
     let user_did = "did:plc:test123";
     let service_did = "did:web:feedgen.example.com";
@@ -877,7 +878,7 @@ async fn test_global_service_id_allow_list() {
 
 #[tokio::test]
 async fn test_route_scoped_service_id_policy() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::thread_rng());
+    let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
     let verifying_key = signing_key.verifying_key();
     let user_did = "did:plc:test123";
     let service_did = "did:web:feedgen.example.com";

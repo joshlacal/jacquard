@@ -3,13 +3,12 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 pub use tokio_tungstenite::tungstenite::{Bytes, Utf8Bytes};
 use tokio_tungstenite::{
-    self as tg,
+    self as tg, MaybeTlsStream,
     tungstenite::{
-        error::*,
-        protocol::{frame::coding::Data, CloseFrame},
         Message, Result,
+        error::*,
+        protocol::{CloseFrame, frame::coding::Data},
     },
-    MaybeTlsStream,
 };
 
 pub async fn connect(url: &str) -> crate::Result<WebSocketStream> {
@@ -185,11 +184,11 @@ impl From<Error> for crate::Error {
             Error::Tls(inner) => crate::Error::Tls(inner.into()),
             Error::Capacity(inner) => crate::Error::Capacity(inner.into()),
             Error::Protocol(inner) => crate::Error::Protocol(inner.into()),
-            Error::WriteBufferFull(inner) => crate::Error::WriteBufferFull(inner.into()),
-            Error::Utf8 => crate::Error::Utf8,
+            Error::WriteBufferFull(inner) => crate::Error::WriteBufferFull((*inner).into()),
+            Error::Utf8(_) => crate::Error::Utf8,
             Error::AttackAttempt => crate::Error::AttackAttempt,
             Error::Url(inner) => crate::Error::Url(inner.into()),
-            Error::Http(inner) => crate::Error::Http(inner),
+            Error::Http(inner) => crate::Error::Http(*inner),
             Error::HttpFormat(inner) => crate::Error::HttpFormat(inner),
         }
     }
@@ -236,6 +235,9 @@ impl From<ProtocolError> for crate::error::ProtocolError {
             ProtocolError::MissingSecWebSocketKey => {
                 crate::error::ProtocolError::MissingSecWebSocketKey
             }
+            ProtocolError::InvalidSecWebSocketKey => {
+                crate::error::ProtocolError::InvalidSecWebSocketKey
+            }
             ProtocolError::SecWebSocketAcceptKeyMismatch => {
                 crate::error::ProtocolError::SecWebSocketAcceptKeyMismatch
             }
@@ -244,7 +246,7 @@ impl From<ProtocolError> for crate::error::ProtocolError {
                 crate::error::ProtocolError::CustomResponseSuccessful
             }
             ProtocolError::InvalidHeader(header_name) => {
-                crate::error::ProtocolError::InvalidHeader(header_name)
+                crate::error::ProtocolError::InvalidHeader(*header_name)
             }
             ProtocolError::HandshakeIncomplete => crate::error::ProtocolError::HandshakeIncomplete,
             ProtocolError::HttparseError(inner) => {
@@ -297,9 +299,9 @@ impl From<TlsError> for crate::error::TlsError {
     fn from(err: TlsError) -> Self {
         match err {
             #[cfg(all(feature = "native-tls", not(target_arch = "wasm32")))]
-            TlsError::Native(inner) => crate::error::TlsError::Native(inner),
+            TlsError::Native(inner) => crate::error::TlsError::Native(*inner),
             #[cfg(all(feature = "__rustls-tls", not(target_arch = "wasm32")))]
-            TlsError::Rustls(inner) => crate::error::TlsError::Rustls(inner),
+            TlsError::Rustls(inner) => crate::error::TlsError::Rustls(*inner),
             #[cfg(all(feature = "__rustls-tls", not(target_arch = "wasm32")))]
             TlsError::InvalidDnsName => crate::error::TlsError::InvalidDnsName,
             _ => crate::error::TlsError::Unknown,

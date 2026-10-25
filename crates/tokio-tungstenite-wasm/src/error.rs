@@ -2,7 +2,7 @@
 
 use std::{io, result, str, string};
 
-use http::{header::HeaderName, Response};
+use http::{Response, header::HeaderName};
 use thiserror::Error;
 
 /// Result type of all Tungstenite library calls.
@@ -183,6 +183,9 @@ pub enum ProtocolError {
     /// Missing `Sec-WebSocket-Key` HTTP header.
     #[error("No \"Sec-WebSocket-Key\" header")]
     MissingSecWebSocketKey,
+    /// The WebSocket key has invalid base64 or does not decode to 16 bytes.
+    #[error("Invalid Sec-WebSocket-Key header")]
+    InvalidSecWebSocketKey,
     /// The `Sec-WebSocket-Accept` header is either not present or does not specify the correct key value.
     #[error("Key mismatch in \"Sec-WebSocket-Accept\" header")]
     SecWebSocketAcceptKeyMismatch,

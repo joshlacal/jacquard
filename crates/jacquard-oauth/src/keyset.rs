@@ -149,7 +149,13 @@ impl Keyset {
                 let d_bytes: &[u8] = d.as_ref();
                 match ec.crv {
                     EcCurves::P256 => {
-                        let signing_key = p256::ecdsa::SigningKey::from_bytes(d_bytes.into())
+                        // Keep the fixed-width JWK scalar requirement; from_slice also accepts padded scalars.
+                        let d_bytes: &[u8; 32] = d_bytes.try_into().map_err(|_| {
+                            Error::InvalidKey(
+                                "p256 private key must contain exactly 32 bytes".into(),
+                            )
+                        })?;
+                        let signing_key = p256::ecdsa::SigningKey::from_slice(d_bytes)
                             .map_err(|e| Error::InvalidKey(e.to_string()))?;
                         let mut header = RegisteredHeader::from(Algorithm::Signing(Signing::Es256));
                         header.kid = Some(kid);
@@ -160,7 +166,13 @@ impl Keyset {
                         )?)
                     }
                     EcCurves::P384 => {
-                        let signing_key = p384::ecdsa::SigningKey::from_bytes(d_bytes.into())
+                        // Keep the fixed-width JWK scalar requirement; from_slice also accepts padded scalars.
+                        let d_bytes: &[u8; 48] = d_bytes.try_into().map_err(|_| {
+                            Error::InvalidKey(
+                                "p384 private key must contain exactly 48 bytes".into(),
+                            )
+                        })?;
+                        let signing_key = p384::ecdsa::SigningKey::from_slice(d_bytes)
                             .map_err(|e| Error::InvalidKey(e.to_string()))?;
                         let mut header: RegisteredHeader<&str> =
                             RegisteredHeader::from(Algorithm::Signing(Signing::Es384));
@@ -172,7 +184,13 @@ impl Keyset {
                         )?)
                     }
                     EcCurves::P256K => {
-                        let signing_key = k256::ecdsa::SigningKey::from_bytes(d_bytes.into())
+                        // Keep the fixed-width JWK scalar requirement; from_slice also accepts padded scalars.
+                        let d_bytes: &[u8; 32] = d_bytes.try_into().map_err(|_| {
+                            Error::InvalidKey(
+                                "k256 private key must contain exactly 32 bytes".into(),
+                            )
+                        })?;
+                        let signing_key = k256::ecdsa::SigningKey::from_slice(d_bytes)
                             .map_err(|e| Error::InvalidKey(e.to_string()))?;
                         let mut header: RegisteredHeader<&str> =
                             RegisteredHeader::from(Algorithm::Signing(Signing::Es256K));

@@ -1,0 +1,23 @@
+{
+  "baseline": "3287244a99262a361bd32873a871982da0a76c40",
+  "p256_jkt": "Nrqg3-M_Xwtx-1tbtc1J7Xul2DyeC0bUSy9u_5NSG6g",
+  "p256_jwk_json": "{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"b_A7lJJBzh2t1DUZ5pYOCoW0GmmgXDKBA6orzhWUyhY\",\"y\":\"PE91OlW_AdxT9sCwx-7ni0DG_30lqW4igrmJzvccFEo\",\"d\":\"AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE\"}",
+  "p384_jwk_json": "{\"kty\":\"EC\",\"crv\":\"P-384\",\"x\":\"MWFAwmjIhBzd0dy7UaEdUW0oXN2ml58duSMLmpQ28H6jusuPQgDjgmNDOEhNGc30\",\"y\":\"lKGkV99Cs-fiKiVTAElTBbXW8CCPKq2hdBrxqbqqc8OduXHvBtGA2VJOGipNM9-g\",\"d\":\"AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC\"}",
+  "signatures": {
+    "ES256": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImNvbXBhdC1maXhlZC1rZXkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJkaWQ6cGxjOmNvbXBhdC10ZXN0IiwiYXVkIjoiaHR0cHM6Ly9leGFtcGxlLnRlc3QiLCJleHAiOjE3MDAwMDA2MDAsImlhdCI6MTcwMDAwMDAwMCwianRpIjoiZml4ZWQtY29tcGF0aWJpbGl0eS1qdGkifQ.XXW5EDEUmD4oKV3Z350OOMhMwBXI1htCkhshRMr-j49fXM-JO_NyxXE98gL_Baxtfx7jGj1_O3l7wypKDOUw9g",
+    "ES256K": "eyJhbGciOiJFUzI1NksiLCJraWQiOiJjb21wYXQtZml4ZWQta2V5IiwidHlwIjoiSldUIn0.eyJpc3MiOiJkaWQ6cGxjOmNvbXBhdC10ZXN0IiwiYXVkIjoiaHR0cHM6Ly9leGFtcGxlLnRlc3QiLCJleHAiOjE3MDAwMDA2MDAsImlhdCI6MTcwMDAwMDAwMCwianRpIjoiZml4ZWQtY29tcGF0aWJpbGl0eS1qdGkifQ.KludTVNG00WyYoVH6ys_wVE1HledzhUoFm6Spjcuuv4Y6Uzpaq75AhVL4IHCbpNq8jaC1SUFEy9RBXwEJGOsfg",
+    "ES384": "eyJhbGciOiJFUzM4NCIsImtpZCI6ImNvbXBhdC1maXhlZC1rZXkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJkaWQ6cGxjOmNvbXBhdC10ZXN0IiwiYXVkIjoiaHR0cHM6Ly9leGFtcGxlLnRlc3QiLCJleHAiOjE3MDAwMDA2MDAsImlhdCI6MTcwMDAwMDAwMCwianRpIjoiZml4ZWQtY29tcGF0aWJpbGl0eS1qdGkifQ.cNN35dRZJrtZT7qvqayN4SbYlG-iUWvueG3LHI5ImI9LOShKa-0Wi9AKCCXQGjptzRaC4fS2d-M0h9MfxT9GKQzcddTvK7ec52wqHTtney54KHKfpy2L1fGJ4vowVEhh",
+    "EdDSA": "eyJhbGciOiJFZERTQSIsImtpZCI6ImNvbXBhdC1maXhlZC1rZXkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJkaWQ6cGxjOmNvbXBhdC10ZXN0IiwiYXVkIjoiaHR0cHM6Ly9leGFtcGxlLnRlc3QiLCJleHAiOjE3MDAwMDA2MDAsImlhdCI6MTcwMDAwMDAwMCwianRpIjoiZml4ZWQtY29tcGF0aWJpbGl0eS1qdGkifQ.tNkaVhKcnAwgFp03ag4GDvjMczSH2YSlifFpDBSB2DDb6um0YVRH58oN2xZro9_6QAJ1uVtd8gkS0ImRvnoUAQ"
+  },
+  "provenance": {
+    "Cargo.toml": "0a0b88f695ed6cdec1039dde861d948bc6e22e24fa9b7b21319df834e4942599",
+    "Cargo.lock": "f422223bb393b2eb366096394011710f6806eb6d0e5b05c806e7ad2414aa48cc",
+    "src/main.rs": "83b9d9b67505296f205e1cbc06d61fa11ba5f6b2c7ffa36de9cc83f95c62e3f0"
+  },
+  "test_private_key_bytes": {
+    "P-256": "01 repeated 32 times",
+    "P-384": "02 repeated 48 times",
+    "secp256k1": "03 repeated 32 times",
+    "Ed25519": "04 repeated 32 times"
+  }
+}

@@ -52,7 +52,7 @@ fn initial_signing_key(identity: &FixtureIdentity) -> SigningKey {
 /// the `z` prefix. Matches Jacquard's own `PublicKey::decode` convention.
 fn multikey_multibase(verifying_key: &VerifyingKey) -> String {
     let mut bytes = vec![0xe7, 0x01];
-    bytes.extend_from_slice(&verifying_key.to_encoded_point(true).as_bytes());
+    bytes.extend_from_slice(&verifying_key.to_sec1_point(true).as_bytes());
     format!("z{}", bs58::encode(bytes).into_string())
 }
 

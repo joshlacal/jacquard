@@ -15,6 +15,8 @@ use jacquard_common::types::cid::CidLink;
 use jacquard_common::types::recordkey::RecordKeyType;
 use jacquard_common::types::string::{Datetime, Did, Nsid, RecordKey, Tid};
 use jacquard_common::types::tid::Ticker;
+#[cfg(test)]
+use k256::elliptic_curve::Generate as _;
 use smol_str::format_smolstr;
 use std::collections::BTreeMap;
 use std::convert::Infallible;
@@ -726,7 +728,7 @@ mod tests {
         storage: Arc<MemoryBlockStore>,
     ) -> Repository<SmolStr, MemoryBlockStore> {
         let did = Did::new("did:plc:test").unwrap();
-        let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+        let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
 
         let mst = Mst::new(storage.clone());
         let data = mst.persist().await.unwrap(); // Persist empty MST
@@ -759,7 +761,7 @@ mod tests {
         }];
 
         let did = Did::new("did:plc:test").unwrap().into_static();
-        let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+        let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
         let (repo_ops, commit_data) = repo
             .create_commit(
                 &ops,
@@ -876,7 +878,7 @@ mod tests {
 
         // Create commit (need a signing key for this test)
         let did = Did::new("did:plc:test").unwrap().into_static();
-        let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+        let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
         let (_, commit_cid) = repo.commit(&did, None, &signing_key).await.unwrap();
 
         // Load from commit
@@ -899,7 +901,7 @@ mod tests {
         repo.mst.persist().await.unwrap();
 
         let did = Did::new("did:plc:test").unwrap().into_static();
-        let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+        let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
         let (_, commit_cid) = repo.commit(&did, None, &signing_key).await.unwrap();
 
         // Verify commit was stored
@@ -1003,11 +1005,11 @@ mod tests {
         repo.mst.persist().await.unwrap();
 
         let did = Did::new("did:plc:test").unwrap().into_static();
-        let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+        let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
 
         // Get public key from signing key
         let verifying_key = signing_key.verifying_key();
-        let pubkey_bytes = verifying_key.to_encoded_point(true).as_bytes().to_vec();
+        let pubkey_bytes = verifying_key.to_sec1_point(true).as_bytes().to_vec();
         let pubkey = PublicKey {
             codec: KeyCodec::Secp256k1,
             bytes: pubkey_bytes.into(),
@@ -1030,7 +1032,7 @@ mod tests {
 
         let collection = Nsid::new("app.bsky.feed.post").unwrap().into_static();
         let did = Did::new("did:plc:test").unwrap().into_static();
-        let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+        let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
 
         // Add some records and commit
         let mut records = Vec::new();
@@ -1079,7 +1081,7 @@ mod tests {
         let rkey2 = RecordKey(Rkey::new("test2").unwrap()).into_static();
 
         let did = Did::new("did:plc:test").unwrap().into_static();
-        let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+        let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
 
         // Create records with actual data
         let create_ops = vec![
@@ -1158,7 +1160,7 @@ mod tests {
 
         // Format commit
         let did = Did::new("did:plc:test").unwrap().into_static();
-        let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+        let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
         let (repo_ops, commit_data) = repo
             .create_commit(
                 &ops,
@@ -1220,7 +1222,7 @@ mod tests {
         let rkey3 = RecordKey(Rkey::new("existing3").unwrap()).into_static();
 
         let did = Did::new("did:plc:test").unwrap().into_static();
-        let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+        let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
 
         let create_ops = vec![
             RecordWriteOp::Create {
@@ -1319,7 +1321,7 @@ mod tests {
         let posts = Nsid::new("app.bsky.feed.post").unwrap().into_static();
         let likes = Nsid::new("app.bsky.feed.like").unwrap().into_static();
         let did = Did::new("did:plc:test").unwrap().into_static();
-        let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+        let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
 
         let ops = vec![
             RecordWriteOp::Create {
@@ -1381,7 +1383,7 @@ mod tests {
 
         let posts = Nsid::new("app.bsky.feed.post").unwrap().into_static();
         let did = Did::new("did:plc:test").unwrap().into_static();
-        let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+        let signing_key = k256::ecdsa::SigningKey::generate_from_rng(&mut rand::rng());
 
         let ops = vec![
             RecordWriteOp::Create {
