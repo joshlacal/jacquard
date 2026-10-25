@@ -303,10 +303,7 @@ impl SigningKey for k256::ecdsa::SigningKey {
     }
 
     fn public_key(&self) -> Vec<u8> {
-        self.verifying_key()
-            .to_encoded_point(true)
-            .as_bytes()
-            .to_vec()
+        self.verifying_key().to_sec1_point(true).as_bytes().to_vec()
     }
 }
 
@@ -319,9 +316,6 @@ impl SigningKey for p256::ecdsa::SigningKey {
     }
 
     fn public_key(&self) -> Vec<u8> {
-        self.verifying_key()
-            .to_encoded_point(true)
-            .as_bytes()
-            .to_vec()
+        self.verifying_key().to_sec1_point(true).as_bytes().to_vec()
     }
 }

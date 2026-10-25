@@ -1,0 +1,40 @@
+[package]
+name = "jose-jwk"
+version = "0.1.2"
+authors = ["RustCrypto Developers"]
+license = "Apache-2.0 OR MIT"
+description = """
+Pure Rust implementation of the JSON Web Key (JWK) component of the
+Javascript Object Signing and Encryption (JOSE) specification as described in
+RFC7517
+"""
+documentation = "https://docs.rs/jose-jwk"
+repository = "https://github.com/RustCrypto/JOSE/tree/master/jose-jwk"
+categories = ["cryptography", "data-structures", "encoding", "parser-implementations"]
+keywords = ["json", "jose"]
+readme = "README.md"
+edition = "2021"
+rust-version = "1.65"
+
+[features]
+default = ["crypto"]
+crypto = ["p256", "p384", "rsa"]
+
+[dependencies]
+jose-b64 = { version = "0.1", default-features = false, features = ["secret"], path = "../jose-b64" }
+jose-jwa = { version = "0.1", path = "../jose-jwa" }
+serde = { version = "1.0.185", default-features = false, features = ["alloc", "derive"] }
+zeroize = { version = "1.6.0", default-features = false, features = ["alloc"] }
+
+# optional dependencies
+p256 = { version = "0.13.2", default-features = false, optional = true, features = ["arithmetic"] }
+p384 = { version = "0.13.0", default-features = false, optional = true, features = ["arithmetic"] }
+rsa = { version = "0.9", default-features = false, optional = true }
+url = { version = "2.3.1", default-features = false, optional = true, features = ["serde"] }
+
+[dev-dependencies]
+serde_json = "1.0.96"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

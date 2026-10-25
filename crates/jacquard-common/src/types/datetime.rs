@@ -1,6 +1,7 @@
 use alloc::string::{String, ToString};
 use core::cmp;
 use core::fmt;
+use core::hash::{Hash, Hasher};
 use core::str::FromStr;
 
 use chrono::DurationRound;
@@ -34,7 +35,7 @@ pub static ISO8601_REGEX: Lazy<Regex> = Lazy::new(|| {
 /// Examples: `"1985-04-12T23:20:50.123Z"`, `"2023-01-01T00:00:00+00:00"`
 ///
 /// The serialized form is preserved during parsing to ensure exact round-trip serialization.
-#[derive(Clone, Debug, Eq, Hash)]
+#[derive(Clone, Debug, Eq)]
 pub struct Datetime {
     /// Serialized form preserved from parsing for round-trip consistency
     serialized: CowStr<'static>,
@@ -45,6 +46,13 @@ pub struct Datetime {
 impl PartialEq for Datetime {
     fn eq(&self, other: &Self) -> bool {
         self.dt == other.dt
+    }
+}
+
+impl Hash for Datetime {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Equality compares the instant, independent of its preserved spelling.
+        self.dt.hash(state);
     }
 }
 
@@ -294,5 +302,35 @@ mod tests {
         let original = "2023-01-15T12:30:45.123456Z";
         let dt = Datetime::from_str(original).unwrap();
         assert_eq!(dt.as_str(), original);
+    }
+
+    #[test]
+    fn equal_instants_hash_equally_and_preserve_serialization() {
+        use std::collections::HashSet;
+        use std::collections::hash_map::DefaultHasher;
+
+        let spellings = [
+            "2023-01-15T12:30:45Z",
+            "2023-01-15T12:30:45.000000+00:00",
+            "2023-01-15T07:30:45-05:00",
+        ];
+        let original = Datetime::from_str(spellings[0]).unwrap();
+        let mut expected_hash = DefaultHasher::new();
+        original.hash(&mut expected_hash);
+        let values = HashSet::from([original.clone()]);
+
+        for spelling in spellings {
+            let value = Datetime::from_str(spelling).unwrap();
+            assert_eq!(value, original);
+            assert_eq!(value.as_str(), spelling);
+            assert_eq!(
+                serde_json::to_string(&value).unwrap(),
+                format!("\"{spelling}\"")
+            );
+            let mut hash = DefaultHasher::new();
+            value.hash(&mut hash);
+            assert_eq!(hash.finish(), expected_hash.finish());
+            assert!(values.contains(&value));
+        }
     }
 }

@@ -59,7 +59,7 @@ chrono.workspace = true
 html-escape = "0.2"
 k256 = { workspace = true, features = ["ecdsa"] }
 miette = { workspace = true, features = ["fancy"] }
-rand = "0.8"
+rand = "0.10.3"
 reqwest = { workspace = true, default-features = false, features = ["json", "rustls"] }
 serde_json.workspace = true
 #tokio-test = "0.4.4"

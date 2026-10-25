@@ -3,6 +3,7 @@
 //! See: https://github.com/bluesky-social/atproto-interop-tests/tree/main/mst
 //!
 
+use rand::RngExt as _;
 use std::sync::Arc;
 
 use jacquard_common::types::crypto::SHA2_256;
@@ -19,9 +20,9 @@ use serde::Deserialize;
 /// Reimplementation of gen_keys.py from atproto-interop-tests for Rust tests.
 /// Generates keys like "A0/123456" that hash to a specific MST layer.
 fn gen_key_at_layer(letter: char, layer: usize) -> String {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     loop {
-        let num: u32 = rng.gen_range(0..1_000_000);
+        let num: u32 = rng.random_range(0..1_000_000);
         let key = format!("{}{}/{:06}", letter, layer, num);
         if layer_for_key(&key) == layer {
             return key;

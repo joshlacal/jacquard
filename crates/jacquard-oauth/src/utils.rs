@@ -1,9 +1,9 @@
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use elliptic_curve::SecretKey;
+use elliptic_curve::{Generate, SecretKey};
 use jacquard_common::BosStr;
 use jose_jwk::{Key, crypto};
-use rand::{CryptoRng, RngCore, rngs::ThreadRng};
+use rand::{CryptoRng, Rng, rngs::ThreadRng};
 use sha2_legacy::{Digest, Sha256};
 use smol_str::SmolStr;
 use std::cmp::Ordering;
@@ -20,7 +20,7 @@ pub fn generate_key(allowed_algos: &[impl AsRef<str>]) -> Option<Key> {
         match alg.as_ref() {
             "ES256" => {
                 return Some(Key::from(&crypto::Key::from(
-                    SecretKey::<p256::NistP256>::random(&mut ThreadRng::default()),
+                    SecretKey::<p256::NistP256>::generate_from_rng(&mut ThreadRng::default()),
                 )));
             }
             _ => {
@@ -48,7 +48,7 @@ pub fn generate_verifier() -> SmolStr {
 /// Fill a `LEN`-byte array with cryptographically random bytes from `rng`.
 pub fn get_random_values<R, const LEN: usize>(rng: &mut R) -> [u8; LEN]
 where
-    R: RngCore + CryptoRng,
+    R: Rng + CryptoRng,
 {
     let mut bytes = [0u8; LEN];
     rng.fill_bytes(&mut bytes);

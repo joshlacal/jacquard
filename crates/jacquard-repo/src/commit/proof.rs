@@ -24,6 +24,8 @@ use crate::storage::MemoryBlockStore;
 use cid::Cid as IpldCid;
 use jacquard_common::types::string::Did;
 use jacquard_common::{BosStr, CowStr};
+#[cfg(test)]
+use k256::elliptic_curve::Generate as _;
 use smol_str::{SmolStr, format_smolstr};
 use std::sync::Arc;
 
@@ -187,8 +189,8 @@ mod tests {
 
     fn test_signing_key() -> k256::ecdsa::SigningKey {
         use k256::ecdsa::SigningKey;
-        use rand::rngs::OsRng;
-        SigningKey::random(&mut OsRng)
+        use rand::rng;
+        SigningKey::generate_from_rng(&mut rng())
     }
 
     fn test_pubkey(sk: &k256::ecdsa::SigningKey) -> PublicKey<'static> {
@@ -197,7 +199,7 @@ mod tests {
         let vk = sk.verifying_key();
         PublicKey {
             codec: KeyCodec::Secp256k1,
-            bytes: Cow::Owned(vk.to_encoded_point(true).as_bytes().to_vec()),
+            bytes: Cow::Owned(vk.to_sec1_point(true).as_bytes().to_vec()),
         }
     }
 

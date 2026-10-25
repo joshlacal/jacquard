@@ -30,7 +30,7 @@ type NsidOwned = Nsid<SmolStr>;
 type RkeyOwned = Rkey<SmolStr>;
 type CidOwned = AtCid<SmolStr>;
 use jacquard_lexicon::lexicon::{LexSpace, LexUserType, LexiconDoc};
-use rand::RngCore;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
@@ -293,7 +293,7 @@ pub fn sign_commit(
     key: &ed25519_dalek::SigningKey,
 ) -> Result<SignedCommit> {
     let mut ikm = [0; 32];
-    rand::thread_rng().fill_bytes(&mut ikm);
+    rand::rng().fill_bytes(&mut ikm);
     sign_commit_with_ikm(hash, context, key, ikm)
 }
 

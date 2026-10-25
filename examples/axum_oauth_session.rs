@@ -55,7 +55,7 @@ use jacquard_axum::oauth::{
 };
 use jacquard_identity::PublicResolver;
 use miette::{Context, IntoDiagnostic, Result, bail, miette};
-use rand::{RngCore, rngs::OsRng};
+use rand::Rng;
 use serde::Deserialize;
 use tracing_subscriber::EnvFilter;
 
@@ -323,7 +323,7 @@ fn load_or_generate_cookie_key(path: &PathBuf) -> Result<Key> {
         Ok(_) => bail!("{} must contain exactly 64 bytes", path.display()),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             let mut bytes = [0_u8; 64];
-            OsRng.fill_bytes(&mut bytes);
+            rand::rng().fill_bytes(&mut bytes);
             write_secret(path, &bytes)?;
             Ok(Key::from(&bytes))
         }

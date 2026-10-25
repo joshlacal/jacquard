@@ -17,3 +17,7 @@ rustdoc-host.nix
 **/**.car
 result
 crates/jacquard-codegen-tests/src/generated/
+
+# Standalone compatibility checks for the bounded JWK provider patch.
+/vendor/jose-jwk/target
+/vendor/jose-jwk/Cargo.lock
