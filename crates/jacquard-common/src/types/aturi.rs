@@ -273,7 +273,10 @@ fn extract_indices(uri: &str) -> AtUriIndices {
 // ---------------------------------------------------------------------------
 
 fn validate_uri_shape(uri: &str) -> Result<UriShape, AtStrError> {
-    // The space marker is positional: only the first path segment after the
+    if uri.starts_with(SPACE_URI_PREFIX) {
+        return validate_space_and_index(uri).map(|indices| UriShape::Space { indices });
+    }
+    // In the alpha form the space marker is positional: only the first path segment after the
     // authority may carry it. A standard URI with a collection or rkey that
     // happens to be "space" must parse as standard.
     let after_scheme = uri.strip_prefix("at://").unwrap_or(uri);
@@ -406,7 +409,13 @@ impl<S: Bos<str> + AsRef<str>> AtUri<S> {
         let s: &'o str = self.uri.borrow_or_share();
         let end = match self.shape {
             UriShape::Standard { indices } => indices.authority_end(s.len()),
-            UriShape::Space { indices } => indices.first_slash.get() as usize,
+            UriShape::Space { indices } => {
+                return unsafe {
+                    AtIdentifier::unchecked(
+                        &s[indices.authority_start()..indices.first_slash.get() as usize],
+                    )
+                };
+            }
         };
         unsafe { AtIdentifier::unchecked(&s[5..end]) }
     }
@@ -420,7 +429,9 @@ impl<S: Bos<str> + AsRef<str>> AtUri<S> {
             return None;
         };
         let s: &'o str = self.uri.borrow_or_share();
-        Some(unsafe { Did::unchecked(&s[5..indices.first_slash.get() as usize]) })
+        Some(unsafe {
+            Did::unchecked(&s[indices.authority_start()..indices.first_slash.get() as usize])
+        })
     }
 
     /// Get the space type NSID, if this is a space URI.
@@ -685,7 +696,14 @@ impl<S: Bos<str> + AsRef<str>> Deref for AtUri<S> {
 /// space and a valid delimiter can never occur at zero.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) struct AtSpaceUriIndices {
+    /// Whether the URI uses the spaces-alpha form `at://AUTHORITY/space/...`
+    /// rather than the current `at:space/AUTHORITY/...` form.
+    legacy: bool,
+    /// Slash ending the authority.
     first_slash: NonZeroU16,
+    /// Delimiter before the space type: the `/space/` marker's closing slash in
+    /// the alpha form, and the same slash as `first_slash` in the current form,
+    /// which has no marker segment.
     second_slash: NonZeroU16,
     third_slash: NonZeroU16,
     fourth_slash: Option<NonZeroU16>,
@@ -694,6 +712,15 @@ pub(crate) struct AtSpaceUriIndices {
 }
 
 impl AtSpaceUriIndices {
+    /// Byte offset where the authority DID starts.
+    fn authority_start(&self) -> usize {
+        if self.legacy {
+            "at://".len()
+        } else {
+            SPACE_URI_PREFIX.len()
+        }
+    }
+
     fn skey_end(&self, len: usize) -> usize {
         self.fourth_slash.map(|n| n.get() as usize).unwrap_or(len)
     }
@@ -747,7 +774,7 @@ impl<S: Bos<str> + AsRef<str>> fmt::Display for SpaceRef<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "at://{}/space/{}/{}",
+            "{SPACE_URI_PREFIX}{}/{}/{}",
             self.space_did, self.space_type, self.skey
         )
     }
@@ -770,12 +797,17 @@ where
 
 /// Permissioned space URI.
 ///
-/// The accepted forms are:
+/// The current forms (atproto permissioned-data, Nov 24 2026) are:
 ///
 /// ```text
-/// at://AUTHORITY/space/SPACE_TYPE/SKEY
-/// at://AUTHORITY/space/SPACE_TYPE/SKEY/AUTHOR/COLLECTION/RKEY
+/// at:space/AUTHORITY/SPACE_TYPE/SKEY
+/// at:space/AUTHORITY/SPACE_TYPE/SKEY/AUTHOR/COLLECTION/RKEY
 /// ```
+///
+/// The spaces-alpha forms `at://AUTHORITY/space/SPACE_TYPE/SKEY[/AUTHOR/COLLECTION/RKEY]`
+/// are still read, because records written during the alpha embed them, but they are
+/// kept as written: check [`Self::is_legacy_form`] and use [`Self::to_current_form`]
+/// where only the current form may be sent, such as request parameters.
 ///
 /// This is separate for those specific instances where you want to exclude non-permissioned records.
 ///
@@ -800,7 +832,18 @@ impl<S: Bos<str> + AsRef<str>> Hash for AtSpaceUri<S> {
     }
 }
 
-/// Regex for the two canonical permissioned space URI forms.
+/// Prefix of a permissioned space URI in its current form.
+pub const SPACE_URI_PREFIX: &str = "at:space/";
+
+/// Regex for the current permissioned space URI forms (`at:space/...`).
+pub static ATSPACEURI_CURRENT_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r"^at:space/(?<authority>[a-zA-Z0-9._:%-]+)/(?<space_type>[a-zA-Z0-9.-]+)/(?<skey>[a-zA-Z0-9._~:@!$&%')(*+,;=-]+)(/(?<author>[a-zA-Z0-9._:%-]+)/(?<collection>[a-zA-Z0-9.-]+)/(?<rkey>[a-zA-Z0-9._~:@!$&%')(*+,;=-]+))?$",
+    )
+    .unwrap()
+});
+
+/// Regex for the spaces-alpha permissioned space URI forms (`at://AUTHORITY/space/...`).
 pub static ATSPACEURI_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
         r"^at://(?<authority>[a-zA-Z0-9._:%-]+)/space/(?<space_type>[a-zA-Z0-9.-]+)/(?<skey>[a-zA-Z0-9._~:@!$&%')(*+,;=-]+)(/(?<author>[a-zA-Z0-9._:%-]+)/(?<collection>[a-zA-Z0-9.-]+)/(?<rkey>[a-zA-Z0-9._~:@!$&%')(*+,;=-]+))?$",
@@ -809,7 +852,12 @@ pub static ATSPACEURI_REGEX: Lazy<Regex> = Lazy::new(|| {
 });
 
 fn validate_space_and_index(uri: &str) -> Result<AtSpaceUriIndices, AtStrError> {
-    let Some(parts) = ATSPACEURI_REGEX.captures(uri) else {
+    let regex = if uri.starts_with(SPACE_URI_PREFIX) {
+        &ATSPACEURI_CURRENT_REGEX
+    } else {
+        &ATSPACEURI_REGEX
+    };
+    let Some(parts) = regex.captures(uri) else {
         return Err(AtStrError::regex(
             "at-space-uri-scheme",
             uri,
@@ -854,22 +902,40 @@ fn validate_space_and_index(uri: &str) -> Result<AtSpaceUriIndices, AtStrError> 
 }
 
 fn extract_space_indices(uri: &str) -> AtSpaceUriIndices {
+    let legacy = !uri.starts_with(SPACE_URI_PREFIX);
+    let start = if legacy { "at://".len() } else { SPACE_URI_PREFIX.len() };
     let bytes = uri.as_bytes();
     let mut slashes = [None; 6];
     let mut found = 0;
-    for (i, byte) in bytes.iter().enumerate().skip(5) {
+    for (i, byte) in bytes.iter().enumerate().skip(start) {
         if *byte == b'/' && found < slashes.len() {
             slashes[found] = NonZeroU16::new(i as u16);
             found += 1;
         }
     }
-    AtSpaceUriIndices {
-        first_slash: slashes[0].expect("validated space URI has authority slash"),
-        second_slash: slashes[1].expect("validated space URI has space slash"),
-        third_slash: slashes[2].expect("validated space URI has skey slash"),
-        fourth_slash: slashes[3],
-        fifth_slash: slashes[4],
-        sixth_slash: slashes[5],
+    if legacy {
+        AtSpaceUriIndices {
+            legacy,
+            first_slash: slashes[0].expect("validated space URI has authority slash"),
+            second_slash: slashes[1].expect("validated space URI has space slash"),
+            third_slash: slashes[2].expect("validated space URI has skey slash"),
+            fourth_slash: slashes[3],
+            fifth_slash: slashes[4],
+            sixth_slash: slashes[5],
+        }
+    } else {
+        // The current form has no `space` marker segment, so the delimiter before
+        // the space type is the authority's own slash.
+        let first_slash = slashes[0].expect("validated space URI has authority slash");
+        AtSpaceUriIndices {
+            legacy,
+            first_slash,
+            second_slash: first_slash,
+            third_slash: slashes[1].expect("validated space URI has skey slash"),
+            fourth_slash: slashes[2],
+            fifth_slash: slashes[3],
+            sixth_slash: slashes[4],
+        }
     }
 }
 
@@ -921,7 +987,11 @@ impl<S: Bos<str> + AsRef<str>> AtSpaceUri<S> {
         S: BorrowOrShare<'i, 'o, str>,
     {
         let value: &'o str = self.uri.borrow_or_share();
-        unsafe { AtIdentifier::unchecked(&value[5..self.indices.first_slash.get() as usize]) }
+        unsafe {
+            AtIdentifier::unchecked(
+                &value[self.indices.authority_start()..self.indices.first_slash.get() as usize],
+            )
+        }
     }
 
     /// Return the space authority as a validated DID.
@@ -930,7 +1000,11 @@ impl<S: Bos<str> + AsRef<str>> AtSpaceUri<S> {
         S: BorrowOrShare<'i, 'o, str>,
     {
         let value: &'o str = self.uri.borrow_or_share();
-        unsafe { Did::unchecked(&value[5..self.indices.first_slash.get() as usize]) }
+        unsafe {
+            Did::unchecked(
+                &value[self.indices.authority_start()..self.indices.first_slash.get() as usize],
+            )
+        }
     }
 
     /// Return the NSID identifying this URI's space type.
@@ -1030,6 +1104,24 @@ impl<S: Bos<str> + AsRef<str>> AtSpaceUri<S> {
     /// Return whether this URI includes author, collection, and record-key components.
     pub fn is_record(&self) -> bool {
         self.indices.fourth_slash.is_some()
+    }
+
+    /// Return whether this URI uses the spaces-alpha form `at://AUTHORITY/space/...`.
+    pub fn is_legacy_form(&self) -> bool {
+        self.indices.legacy
+    }
+
+    /// Return this URI in the current `at:space/...` form.
+    ///
+    /// A URI already in the current form is returned unchanged.
+    pub fn to_current_form(&self) -> String {
+        let value = self.uri.as_ref();
+        if !self.indices.legacy {
+            return String::from(value);
+        }
+        let authority = &value[self.indices.authority_start()..self.indices.first_slash.get() as usize];
+        let rest = &value[self.indices.second_slash.get() as usize + 1..];
+        format!("{SPACE_URI_PREFIX}{authority}/{rest}")
     }
 }
 
@@ -1365,9 +1457,11 @@ mod tests {
         assert_eq!(space.author().unwrap().as_str(), "did:plc:author");
         assert_eq!(space.collection().unwrap().as_str(), "com.example.record");
         assert_eq!(space.rkey().unwrap().as_ref(), "r");
+        // A space reference always prints in the current form, even when read
+        // from an alpha-form URI.
         assert_eq!(
             space.space_ref().unwrap().to_string(),
-            "at://did:plc:space/space/com.example.type/demo"
+            "at:space/did:plc:space/com.example.type/demo"
         );
 
         let json = serde_json::to_string(&space).unwrap();
@@ -1405,6 +1499,133 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn current_space_form_parses_with_the_same_components() {
+        let space = AtSpaceUri::new("at:space/did:plc:space/com.example.type/demo").unwrap();
+        assert!(!space.is_legacy_form());
+        assert_eq!(space.authority().as_str(), "did:plc:space");
+        assert_eq!(space.did_authority().as_str(), "did:plc:space");
+        assert_eq!(space.space_type().as_str(), "com.example.type");
+        assert_eq!(space.skey().as_str(), "demo");
+        assert!(!space.is_record());
+        assert!(space.author().is_none());
+        assert!(space.collection().is_none());
+        assert!(space.rkey().is_none());
+        assert_eq!(
+            space.space_ref().to_string(),
+            "at:space/did:plc:space/com.example.type/demo"
+        );
+        assert_eq!(
+            space.to_current_form(),
+            "at:space/did:plc:space/com.example.type/demo"
+        );
+
+        let record = AtSpaceUri::new(
+            "at:space/did:plc:space/com.example.type/demo/did:plc:author/com.example.record/r",
+        )
+        .unwrap();
+        assert!(record.is_record());
+        assert_eq!(record.did_authority().as_str(), "did:plc:space");
+        assert_eq!(record.space_type().as_str(), "com.example.type");
+        assert_eq!(record.skey().as_str(), "demo");
+        assert_eq!(record.author().unwrap().as_str(), "did:plc:author");
+        assert_eq!(record.did_author().unwrap().as_str(), "did:plc:author");
+        assert_eq!(record.collection().unwrap().as_str(), "com.example.record");
+        assert_eq!(record.rkey().unwrap().as_str(), "r");
+        assert_eq!(record.path().space_type.as_str(), "com.example.type");
+    }
+
+    #[test]
+    fn at_uri_reads_current_space_records() {
+        let uri = AtUri::new(
+            "at:space/did:plc:space/com.example.type/demo/did:plc:author/com.example.record/r",
+        )
+        .unwrap();
+        assert!(uri.is_space());
+        assert_eq!(uri.authority().as_str(), "did:plc:space");
+        assert_eq!(uri.space_did().unwrap().as_str(), "did:plc:space");
+        assert_eq!(uri.space_type().unwrap().as_str(), "com.example.type");
+        assert_eq!(uri.skey().unwrap().as_ref(), "demo");
+        assert_eq!(uri.author().unwrap().as_str(), "did:plc:author");
+        assert_eq!(uri.collection().unwrap().as_str(), "com.example.record");
+        assert_eq!(uri.rkey().unwrap().as_ref(), "r");
+        assert!(uri.path().is_none());
+        assert!(uri.fragment().is_none());
+
+        let space_only = AtUri::new("at:space/did:plc:space/com.example.type/demo").unwrap();
+        assert!(space_only.is_space());
+        assert!(space_only.author().is_none());
+        assert!(space_only.collection().is_none());
+        assert!(space_only.rkey().is_none());
+        assert_eq!(
+            space_only.space_ref().unwrap().to_string(),
+            "at:space/did:plc:space/com.example.type/demo"
+        );
+    }
+
+    #[test]
+    fn legacy_space_form_converts_to_the_current_form() {
+        let space = AtSpaceUri::new("at://did:plc:space/space/com.example.type/demo").unwrap();
+        assert!(space.is_legacy_form());
+        assert_eq!(
+            space.to_current_form(),
+            "at:space/did:plc:space/com.example.type/demo"
+        );
+        let record = AtSpaceUri::new(
+            "at://did:plc:space/space/com.example.type/demo/did:plc:author/com.example.record/r",
+        )
+        .unwrap();
+        let current = record.to_current_form();
+        assert_eq!(
+            current,
+            "at:space/did:plc:space/com.example.type/demo/did:plc:author/com.example.record/r"
+        );
+        let reparsed = AtSpaceUri::new(current.as_str()).unwrap();
+        assert!(!reparsed.is_legacy_form());
+        assert_eq!(reparsed.author(), record.author());
+        assert_eq!(reparsed.collection(), record.collection());
+        assert_eq!(reparsed.rkey(), record.rkey());
+    }
+
+    #[test]
+    fn current_space_form_rejects_noncanonical_shapes() {
+        for bad in [
+            "at:space/",
+            "at:space/did:plc:space",
+            "at:space/did:plc:space/com.example.type",
+            "at:space/did:plc:space/com.example.type/demo/",
+            "at:space/did:plc:space/com.example.type/demo/did:plc:author/com.example.record",
+            "at:space/did:plc:space/com.example.type/demo/did:plc:author/com.example.record/r/",
+            "at:space/alice.test/com.example.type/demo",
+            "at:space/did:plc:space/not_an_nsid/demo",
+            "at:space/did:plc:space/com.example.type/demo/alice.test/com.example.record/r",
+            "at:space//com.example.type/demo",
+            "at:space/did:plc:space/com.example.type/demo#frag",
+            "at:space/did:plc:space/com.example.type/demo?x=1",
+            "at:space:/did:plc:space/com.example.type/demo",
+            "at-space://did:plc:space/com.example.type/demo",
+        ] {
+            assert!(AtSpaceUri::new(bad).is_err(), "{bad}");
+            assert!(AtUri::new(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn current_space_form_serde_roundtrip_keeps_the_string() {
+        let original =
+            "at:space/did:plc:space/com.example.type/demo/did:plc:author/com.example.record/r";
+        let uri: AtSpaceUri<SmolStr> = AtSpaceUri::new_owned(original).unwrap();
+        let json = serde_json::to_string(&uri).unwrap();
+        assert_eq!(json, format!("\"{original}\""));
+        let decoded: AtSpaceUri<SmolStr> = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, uri);
+        assert_eq!(decoded.rkey().unwrap().as_str(), "r");
+        let as_at_uri = AtUri::from(decoded);
+        assert_eq!(as_at_uri.as_str(), original);
+        let back: Option<AtSpaceUri<SmolStr>> = as_at_uri.into();
+        assert_eq!(back.unwrap().as_str(), original);
     }
 
     #[test]
